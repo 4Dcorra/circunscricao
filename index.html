@@ -3,50 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <title>Consulta de Circunscrição - Polícia Civil SP</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a6b">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: #f5f6f8;
     color: #222;
+    -webkit-text-size-adjust: 100%;
   }
   header {
     background: #1a3a6b;
     color: white;
-    padding: 12px 20px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
   }
-  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
-  header .status { font-size: 12px; opacity: 0.85; }
+  header .title { flex: 1; min-width: 0; }
+  header h1 {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  header .status {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
   main {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    height: calc(100vh - 56px);
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100% - 56px);
   }
   .panel {
     background: white;
-    overflow-y: auto;
-    border-right: 1px solid #e0e3ea;
-    padding: 20px;
+    padding: 16px;
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
   }
   .tabs {
     display: flex;
     margin-bottom: 16px;
     border-bottom: 1px solid #e0e3ea;
+    overflow-x: auto;
   }
   .tab {
-    padding: 10px 16px;
+    padding: 10px 14px;
     cursor: pointer;
     border-bottom: 2px solid transparent;
     font-size: 14px;
     color: #666;
+    white-space: nowrap;
+    flex-shrink: 0;
+    user-select: none;
   }
   .tab.active {
     color: #1a3a6b;
@@ -64,32 +86,35 @@
   }
   input[type=text] {
     width: 100%;
-    padding: 10px 12px;
+    padding: 12px;
     border: 1px solid #cfd4dc;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 16px;
     margin-bottom: 12px;
+    -webkit-appearance: none;
   }
   input:focus { outline: none; border-color: #1a3a6b; }
   button {
     background: #1a3a6b;
     color: white;
     border: none;
-    padding: 10px 16px;
+    padding: 12px 16px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
     width: 100%;
+    -webkit-appearance: none;
   }
   button:hover { background: #14305a; }
+  button:active { background: #0f2547; }
   button:disabled { background: #999; cursor: not-allowed; }
   button.secondary {
     background: white;
     color: #1a3a6b;
-    border: 1px solid #cfd4dc;
+    border: 1px solid #1a3a6b;
   }
-  #map { height: 100%; }
+  button.secondary:hover { background: #f0f4fa; }
   .result {
     margin-top: 20px;
     padding: 16px;
@@ -105,14 +130,16 @@
     margin: 0 0 8px 0;
     font-size: 16px;
     color: #1a3a6b;
+    line-height: 1.3;
   }
   .result .field {
     margin: 4px 0;
-    font-size: 13px;
+    font-size: 14px;
+    word-break: break-word;
   }
   .result .field strong {
     display: inline-block;
-    width: 50px;
+    min-width: 48px;
     color: #555;
   }
   .result .address {
@@ -127,7 +154,24 @@
     color: #777;
     margin-top: -6px;
     margin-bottom: 12px;
+    line-height: 1.4;
   }
+  .map-toggle {
+    margin-top: 20px;
+    display: flex;
+    gap: 8px;
+  }
+  .map-toggle button { flex: 1; }
+  #mapContainer {
+    display: none;
+    height: 60vh;
+    min-height: 320px;
+    width: 100%;
+    border-top: 1px solid #e0e3ea;
+    margin-top: 16px;
+  }
+  #mapContainer.visible { display: block; }
+  #map { height: 100%; width: 100%; }
   .loader {
     position: fixed;
     inset: 0;
@@ -137,6 +181,7 @@
     align-items: center;
     justify-content: center;
     z-index: 9999;
+    padding: 20px;
   }
   .loader.hidden { display: none; }
   .loader .spinner {
@@ -149,8 +194,8 @@
     margin-bottom: 16px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loader .msg { font-size: 14px; color: #444; max-width: 400px; text-align: center; }
-  .loader .progress { font-size: 12px; color: #888; margin-top: 8px; }
+  .loader .msg { font-size: 14px; color: #444; max-width: 400px; text-align: center; line-height: 1.4; }
+  .loader .progress { font-size: 12px; color: #888; margin-top: 8px; text-align: center; }
   .badge {
     display: inline-block;
     padding: 3px 8px;
@@ -159,16 +204,17 @@
     border-radius: 4px;
     font-size: 11px;
     margin-left: 6px;
+    vertical-align: middle;
   }
   .upload-area {
     border: 2px dashed #cfd4dc;
     border-radius: 8px;
-    padding: 24px;
+    padding: 20px;
     text-align: center;
     margin: 16px 0;
     background: #fafbfc;
   }
-  .upload-area p { margin: 0 0 12px 0; font-size: 13px; color: #555; }
+  .upload-area p { margin: 0 0 12px 0; font-size: 13px; color: #555; line-height: 1.4; }
   .clear-btn {
     background: transparent;
     color: #888;
@@ -179,51 +225,126 @@
     margin-top: 8px;
     padding: 0;
     width: auto;
+    display: inline;
+  }
+  .footer-info {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e0e3ea;
+    font-size: 11px;
+    color: #888;
+    line-height: 1.5;
+  }
+  .signature {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #1a3a6b 0%, #2a5598 100%);
+    color: white;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+  }
+  .signature strong {
+    font-size: 14px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .signature .sub {
+    opacity: 0.85;
+    font-size: 10px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+
+  /* Desktop: side-by-side when map is open */
+  @media (min-width: 900px) {
+    header h1 { font-size: 18px; }
+    header .status { font-size: 12px; }
+    main.map-open {
+      flex-direction: row;
+      height: calc(100vh - 56px);
+    }
+    main.map-open .panel {
+      width: 420px;
+      max-width: 420px;
+      margin: 0;
+      overflow-y: auto;
+      border-right: 1px solid #e0e3ea;
+      flex-shrink: 0;
+    }
+    main.map-open #mapContainer {
+      flex: 1;
+      height: auto;
+      margin-top: 0;
+      border-top: none;
+    }
+  }
+
+  /* Mobile tweaks */
+  @media (max-width: 480px) {
+    header { padding: 10px 12px; }
+    header h1 { font-size: 14px; }
+    .panel { padding: 14px; }
+    .tab { padding: 10px 12px; font-size: 13px; }
+    .result h3 { font-size: 15px; }
+    #mapContainer { height: 55vh; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Consulta de Circunscrição - Polícia Civil SP</h1>
-  <div class="status" id="dataStatus">Carregando dados...</div>
+  <div class="title">
+    <h1>Consulta de Circunscrição</h1>
+    <div class="status" id="dataStatus">Carregando dados...</div>
+  </div>
 </header>
 
-<main>
+<main id="mainArea">
   <div class="panel">
     <div class="tabs">
       <div class="tab active" data-tab="cep">CEP</div>
       <div class="tab" data-tab="endereco">Endereço</div>
-      <div class="tab" data-tab="mapa">Mapa</div>
     </div>
 
     <div class="tab-content active" id="tab-cep">
       <label for="cepInput">CEP</label>
-      <input type="text" id="cepInput" placeholder="07123-456 ou 07123456" maxlength="9">
+      <input type="text" id="cepInput" placeholder="07123-456 ou 07123456" maxlength="9" inputmode="numeric">
       <div class="help">Digite o CEP com ou sem hífen</div>
       <button id="cepBtn">Consultar circunscrição</button>
     </div>
 
     <div class="tab-content" id="tab-endereco">
       <label for="addrInput">Endereço completo</label>
-      <input type="text" id="addrInput" placeholder="Av. Paulista, 1000, São Paulo">
-      <div class="help">Rua, número e cidade. Quanto mais detalhado, melhor.</div>
+      <input type="text" id="addrInput" placeholder="Av. Paulista, 1000, São Paulo" autocomplete="street-address">
+      <div class="help">Rua, número e cidade — quanto mais detalhado, melhor</div>
       <button id="addrBtn">Consultar circunscrição</button>
-    </div>
-
-    <div class="tab-content" id="tab-mapa">
-      <div class="help" style="margin-bottom: 12px;">Clique em qualquer ponto do mapa ao lado para descobrir a circunscrição correspondente.</div>
     </div>
 
     <div id="resultBox"></div>
 
-    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e0e3ea;">
-      <div style="font-size: 11px; color: #888;">Dados: Polícia Civil de SP (DCDE/SSP). Atualizado: 13/02/2026.</div>
+    <div class="map-toggle">
+      <button class="secondary" id="mapToggleBtn">Mostrar mapa</button>
+    </div>
+
+    <div class="footer-info">
+      Dados: Polícia Civil de SP (DCDE/SSP). Atualizado: 13/02/2026.
+      <br>
       <button class="clear-btn" id="clearCacheBtn">Limpar cache e recarregar dados</button>
+    </div>
+
+    <div class="signature">
+      <strong>4Dcorra</strong>
+      <span class="sub">Desenvolvido por</span>
     </div>
   </div>
 
-  <div id="map"></div>
+  <div id="mapContainer">
+    <div id="map"></div>
+  </div>
 </main>
 
 <div class="loader" id="loader">
@@ -247,8 +368,10 @@ const KML_URL = 'https://www.google.com/maps/d/kml?mid=1BE_YvZ3biN6F4-m5WGgnVMql
 const CACHE_KEY = 'circunscricoes_v2';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
-let polygons = []; // { dep, sec, dp, bb:[minX,minY,maxX,maxY], c:[lng,lat,lng,lat,...] }
-let map, marker, polygonLayer;
+let polygons = [];
+let map = null, marker = null, polygonLayer = null;
+let mapInitialized = false;
+let pendingPoint = null; // ponto a mostrar no mapa quando ele abrir
 
 // ==================== UI: tabs ====================
 document.querySelectorAll('.tab').forEach(t => {
@@ -362,7 +485,6 @@ function parseKML(text) {
 
 // ==================== Carregar dados ====================
 async function loadData() {
-  // 1. Tenta cache
   try {
     const cached = await cacheGet(CACHE_KEY);
     if (cached && cached.ts && (Date.now() - cached.ts) < CACHE_TTL_MS && cached.data) {
@@ -371,7 +493,6 @@ async function loadData() {
     }
   } catch(e) { console.warn('cache read failed', e); }
 
-  // 2. Tenta baixar do Google Maps
   showLoader('Baixando mapa das circunscrições...', 'Aprox. 28 MB - pode levar 10-30s no primeiro uso');
   try {
     const r = await fetch(KML_URL);
@@ -422,13 +543,11 @@ async function geocodeCEP(cep) {
   const j = await r.json();
   if (j.erro) throw new Error('CEP não encontrado');
   const addr = `${j.logradouro || ''}, ${j.bairro || ''}, ${j.localidade || ''}, ${j.uf || ''}`;
-  // Geocoder
   const coords = await geocodeAddress(addr.replace(/^,\s*/, ''));
   return { ...coords, address: addr, cepData: j };
 }
 
 async function geocodeAddress(addr) {
-  // Nominatim (OpenStreetMap)
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(addr)}`;
   const r = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
   const j = await r.json();
@@ -458,11 +577,15 @@ function renderResult(lat, lng, addressInfo) {
         ${addressInfo ? `<div class="address">${addressInfo}</div>` : ''}
       </div>`).join('');
   }
-  showPointOnMap(lat, lng, matches);
+  pendingPoint = { lat, lng, matches };
+  if (document.getElementById('mapContainer').classList.contains('visible')) {
+    showPointOnMap(lat, lng, matches);
+  }
 }
 
 // ==================== Map ====================
 function initMap() {
+  if (mapInitialized) return;
   map = L.map('map').setView([-23.5, -46.6], 9);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
@@ -472,9 +595,11 @@ function initMap() {
     const { lat, lng } = e.latlng;
     renderResult(lat, lng, `Clicado: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
   });
+  mapInitialized = true;
 }
 
 function showPointOnMap(lat, lng, matches) {
+  if (!map) return;
   if (marker) marker.remove();
   if (polygonLayer) polygonLayer.remove();
   marker = L.marker([lat, lng]).addTo(map);
@@ -482,13 +607,31 @@ function showPointOnMap(lat, lng, matches) {
   if (matches.length > 0) {
     const features = matches.map(m => {
       const ring = [];
-      for (let i = 0; i < m.c.length; i += 2) {
-        ring.push([m.c[i+1], m.c[i]]);
-      }
+      for (let i = 0; i < m.c.length; i += 2) ring.push([m.c[i+1], m.c[i]]);
       return ring;
     });
     polygonLayer = L.polygon(features, { color: '#1a3a6b', weight: 2, fillOpacity: 0.15 }).addTo(map);
     marker.bindPopup(`<b>${matches[0].dp}</b><br>${matches[0].sec}<br>${matches[0].dep}`).openPopup();
+  }
+}
+
+// ==================== Toggle do mapa ====================
+function toggleMap() {
+  const container = document.getElementById('mapContainer');
+  const btn = document.getElementById('mapToggleBtn');
+  const mainArea = document.getElementById('mainArea');
+  const isVisible = container.classList.toggle('visible');
+  mainArea.classList.toggle('map-open', isVisible);
+  if (isVisible) {
+    btn.textContent = 'Ocultar mapa';
+    if (!mapInitialized) initMap();
+    setTimeout(() => {
+      if (map) map.invalidateSize();
+      if (pendingPoint) showPointOnMap(pendingPoint.lat, pendingPoint.lng, pendingPoint.matches);
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  } else {
+    btn.textContent = 'Mostrar mapa';
   }
 }
 
@@ -520,6 +663,8 @@ document.getElementById('addrBtn').addEventListener('click', async () => {
 document.getElementById('cepInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('cepBtn').click(); });
 document.getElementById('addrInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('addrBtn').click(); });
 
+document.getElementById('mapToggleBtn').addEventListener('click', toggleMap);
+
 document.getElementById('clearCacheBtn').addEventListener('click', async () => {
   if (!confirm('Limpar o cache e baixar os dados de novo?')) return;
   await cacheClear();
@@ -540,7 +685,6 @@ document.getElementById('kmlFile').addEventListener('change', async (e) => {
 
 // ==================== Init ====================
 (async () => {
-  initMap();
   const ok = await loadData();
   if (ok) {
     document.getElementById('dataStatus').textContent = `${polygons.length} áreas carregadas`;
