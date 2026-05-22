@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Consulta de Circunscrição - Polícia Civil SP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f6f8;
+    color: #222;
+  }
+  header {
+    background: #1a3a6b;
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .status { font-size: 12px; opacity: 0.85; }
+  main {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    height: calc(100vh - 56px);
+  }
+  .panel {
+    background: white;
+    overflow-y: auto;
+    border-right: 1px solid #e0e3ea;
+    padding: 20px;
+  }
+  .tabs {
+    display: flex;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e0e3ea;
+  }
+  .tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-size: 14px;
+    color: #666;
+  }
+  .tab.active {
+    color: #1a3a6b;
+    border-bottom-color: #1a3a6b;
+    font-weight: 600;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #444;
+  }
+  input[type=text] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cfd4dc;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  input:focus { outline: none; border-color: #1a3a6b; }
+  button {
+    background: #1a3a6b;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+  }
+  button:hover { background: #14305a; }
+  button:disabled { background: #999; cursor: not-allowed; }
+  button.secondary {
+    background: white;
+    color: #1a3a6b;
+    border: 1px solid #cfd4dc;
+  }
+  #map { height: 100%; }
+  .result {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f0f4fa;
+    border-radius: 8px;
+    border-left: 4px solid #1a3a6b;
+  }
+  .result.empty {
+    border-left-color: #999;
+    background: #f5f5f5;
+  }
+  .result h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #1a3a6b;
+  }
+  .result .field {
+    margin: 4px 0;
+    font-size: 13px;
+  }
+  .result .field strong {
+    display: inline-block;
+    width: 50px;
+    color: #555;
+  }
+  .result .address {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #d4dae5;
+    font-size: 12px;
+    color: #666;
+  }
+  .help {
+    font-size: 12px;
+    color: #777;
+    margin-top: -6px;
+    margin-bottom: 12px;
+  }
+  .loader {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  .loader.hidden { display: none; }
+  .loader .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e0e3ea;
+    border-top-color: #1a3a6b;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader .msg { font-size: 14px; color: #444; max-width: 400px; text-align: center; }
+  .loader .progress { font-size: 12px; color: #888; margin-top: 8px; }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #1a3a6b;
+    color: white;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+  .upload-area {
+    border: 2px dashed #cfd4dc;
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    margin: 16px 0;
+    background: #fafbfc;
+  }
+  .upload-area p { margin: 0 0 12px 0; font-size: 13px; color: #555; }
+  .clear-btn {
+    background: transparent;
+    color: #888;
+    border: none;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 8px;
+    padding: 0;
+    width: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Consulta de Circunscrição - Polícia Civil SP</h1>
+  <div class="status" id="dataStatus">Carregando dados...</div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab active" data-tab="cep">CEP</div>
+      <div class="tab" data-tab="endereco">Endereço</div>
+      <div class="tab" data-tab="mapa">Mapa</div>
+    </div>
+
+    <div class="tab-content active" id="tab-cep">
+      <label for="cepInput">CEP</label>
+      <input type="text" id="cepInput" placeholder="07123-456 ou 07123456" maxlength="9">
+      <div class="help">Digite o CEP com ou sem hífen</div>
+      <button id="cepBtn">Consultar circunscrição</button>
+    </div>
+
+    <div class="tab-content" id="tab-endereco">
+      <label for="addrInput">Endereço completo</label>
+      <input type="text" id="addrInput" placeholder="Av. Paulista, 1000, São Paulo">
+      <div class="help">Rua, número e cidade. Quanto mais detalhado, melhor.</div>
+      <button id="addrBtn">Consultar circunscrição</button>
+    </div>
+
+    <div class="tab-content" id="tab-mapa">
+      <div class="help" style="margin-bottom: 12px;">Clique em qualquer ponto do mapa ao lado para descobrir a circunscrição correspondente.</div>
+    </div>
+
+    <div id="resultBox"></div>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e0e3ea;">
+      <div style="font-size: 11px; color: #888;">Dados: Polícia Civil de SP (DCDE/SSP). Atualizado: 13/02/2026.</div>
+      <button class="clear-btn" id="clearCacheBtn">Limpar cache e recarregar dados</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+</main>
+
+<div class="loader" id="loader">
+  <div class="spinner"></div>
+  <div class="msg" id="loaderMsg">Carregando mapa das circunscrições...</div>
+  <div class="progress" id="loaderProgress"></div>
+  <div id="uploadFallback" style="display:none; margin-top: 16px;">
+    <div class="upload-area">
+      <p>Não foi possível baixar o mapa automaticamente.<br>Anexe o arquivo KML manualmente:</p>
+      <input type="file" id="kmlFile" accept=".kml,.kmz">
+      <p style="font-size:11px;margin-top:12px;color:#888;">
+        Para baixar o KML: abra o mapa no Google My Maps → menu (⋮) → "Exportar para KML/KMZ" → marque "Exportar para .KML"
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const KML_URL = 'https://www.google.com/maps/d/kml?mid=1BE_YvZ3biN6F4-m5WGgnVMqlYCtgCEM&forcekml=1';
+const CACHE_KEY = 'circunscricoes_v2';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
+
+let polygons = []; // { dep, sec, dp, bb:[minX,minY,maxX,maxY], c:[lng,lat,lng,lat,...] }
+let map, marker, polygonLayer;
+
+// ==================== UI: tabs ====================
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+// ==================== Loader UI ====================
+function showLoader(msg, progress) {
+  document.getElementById('loader').classList.remove('hidden');
+  document.getElementById('loaderMsg').textContent = msg || '';
+  document.getElementById('loaderProgress').textContent = progress || '';
+}
+function hideLoader() {
+  document.getElementById('loader').classList.add('hidden');
+}
+function showUploadFallback(reason) {
+  document.getElementById('loaderMsg').textContent = reason;
+  document.getElementById('loaderProgress').textContent = '';
+  document.getElementById('uploadFallback').style.display = 'block';
+}
+
+// ==================== IndexedDB cache ====================
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('circunscricoes_db', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('store');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function cacheGet(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('store', 'readonly');
+    const req = tx.objectStore('store').get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function cacheSet(key, value) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('store', 'readwrite');
+    tx.objectStore('store').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function cacheClear() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('store', 'readwrite');
+    tx.objectStore('store').clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ==================== KML parser ====================
+function parseKML(text) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/xml');
+  const folders = doc.querySelectorAll('Folder');
+  const data = [];
+  folders.forEach(folder => {
+    const folderName = folder.querySelector(':scope > name')?.textContent || '';
+    const placemarks = folder.querySelectorAll('Placemark');
+    placemarks.forEach(pm => {
+      const name = pm.querySelector('name')?.textContent || '';
+      const desc = pm.querySelector('description')?.textContent || '';
+      const depMatch = desc.match(/Dep\s+([^<]+?)(?:\s*<br>|$)/);
+      const secMatch = desc.match(/Sec\s+([^<]+?)(?:\s*<br>|$)/);
+      const dpMatch = desc.match(/Dp\s+([^<]+?)(?:\s*<br>|$)/);
+      const polys = pm.querySelectorAll('Polygon');
+      polys.forEach(poly => {
+        const outer = poly.querySelector('outerBoundaryIs LinearRing coordinates')?.textContent?.trim();
+        if (!outer) return;
+        const flat = [];
+        let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+        for (const part of outer.split(/\s+/)) {
+          const p = part.split(',');
+          if (p.length >= 2) {
+            const x = Math.round(parseFloat(p[0])*1e4)/1e4;
+            const y = Math.round(parseFloat(p[1])*1e4)/1e4;
+            flat.push(x, y);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+        if (flat.length > 0) {
+          data.push({
+            dep: depMatch ? depMatch[1].trim() : folderName,
+            sec: secMatch ? secMatch[1].trim() : '',
+            dp: dpMatch ? dpMatch[1].trim() : name,
+            bb: [minX, minY, maxX, maxY],
+            c: flat
+          });
+        }
+      });
+    });
+  });
+  return data;
+}
+
+// ==================== Carregar dados ====================
+async function loadData() {
+  // 1. Tenta cache
+  try {
+    const cached = await cacheGet(CACHE_KEY);
+    if (cached && cached.ts && (Date.now() - cached.ts) < CACHE_TTL_MS && cached.data) {
+      polygons = cached.data;
+      return true;
+    }
+  } catch(e) { console.warn('cache read failed', e); }
+
+  // 2. Tenta baixar do Google Maps
+  showLoader('Baixando mapa das circunscrições...', 'Aprox. 28 MB - pode levar 10-30s no primeiro uso');
+  try {
+    const r = await fetch(KML_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const text = await r.text();
+    showLoader('Processando polígonos...', '1053 áreas para indexar');
+    polygons = parseKML(text);
+    try { await cacheSet(CACHE_KEY, {ts: Date.now(), data: polygons}); } catch(e){ console.warn('cache write failed', e); }
+    return true;
+  } catch(e) {
+    console.error('fetch KML failed', e);
+    showUploadFallback('Não foi possível baixar o KML automaticamente (CORS bloqueado ou sem internet).');
+    return false;
+  }
+}
+
+// ==================== Point in polygon ====================
+function pointInPolyFlat(x, y, c) {
+  let inside = false;
+  const n = c.length;
+  for (let i = 0, j = n - 2; i < n; j = i, i += 2) {
+    const xi = c[i], yi = c[i+1];
+    const xj = c[j], yj = c[j+1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function findCircunscricao(lng, lat) {
+  const matches = [];
+  for (const p of polygons) {
+    const [minX, minY, maxX, maxY] = p.bb;
+    if (lng < minX || lng > maxX || lat < minY || lat > maxY) continue;
+    if (pointInPolyFlat(lng, lat, p.c)) {
+      matches.push(p);
+    }
+  }
+  return matches;
+}
+
+// ==================== Geocodificação ====================
+async function geocodeCEP(cep) {
+  const clean = cep.replace(/\D/g, '');
+  if (clean.length !== 8) throw new Error('CEP inválido');
+  const r = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+  const j = await r.json();
+  if (j.erro) throw new Error('CEP não encontrado');
+  const addr = `${j.logradouro || ''}, ${j.bairro || ''}, ${j.localidade || ''}, ${j.uf || ''}`;
+  // Geocoder
+  const coords = await geocodeAddress(addr.replace(/^,\s*/, ''));
+  return { ...coords, address: addr, cepData: j };
+}
+
+async function geocodeAddress(addr) {
+  // Nominatim (OpenStreetMap)
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(addr)}`;
+  const r = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+  const j = await r.json();
+  if (!j || j.length === 0) throw new Error('Endereço não encontrado no geocodificador');
+  return { lat: parseFloat(j[0].lat), lng: parseFloat(j[0].lon), display: j[0].display_name };
+}
+
+// ==================== Render result ====================
+function renderResult(lat, lng, addressInfo) {
+  const matches = findCircunscricao(lng, lat);
+  const box = document.getElementById('resultBox');
+  if (matches.length === 0) {
+    box.innerHTML = `
+      <div class="result empty">
+        <h3>Fora da área coberta</h3>
+        <div class="field">Coordenadas: ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+        ${addressInfo ? `<div class="address">${addressInfo}</div>` : ''}
+      </div>`;
+  } else {
+    box.innerHTML = matches.map(m => `
+      <div class="result">
+        <h3>${m.dp} <span class="badge">${m.dep}</span></h3>
+        <div class="field"><strong>DP:</strong> ${m.dp}</div>
+        <div class="field"><strong>Sec:</strong> ${m.sec || '—'}</div>
+        <div class="field"><strong>Dep:</strong> ${m.dep}</div>
+        <div class="field"><strong>Lat/Lng:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+        ${addressInfo ? `<div class="address">${addressInfo}</div>` : ''}
+      </div>`).join('');
+  }
+  showPointOnMap(lat, lng, matches);
+}
+
+// ==================== Map ====================
+function initMap() {
+  map = L.map('map').setView([-23.5, -46.6], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+  }).addTo(map);
+  map.on('click', e => {
+    const { lat, lng } = e.latlng;
+    renderResult(lat, lng, `Clicado: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+  });
+}
+
+function showPointOnMap(lat, lng, matches) {
+  if (marker) marker.remove();
+  if (polygonLayer) polygonLayer.remove();
+  marker = L.marker([lat, lng]).addTo(map);
+  map.setView([lat, lng], 14);
+  if (matches.length > 0) {
+    const features = matches.map(m => {
+      const ring = [];
+      for (let i = 0; i < m.c.length; i += 2) {
+        ring.push([m.c[i+1], m.c[i]]);
+      }
+      return ring;
+    });
+    polygonLayer = L.polygon(features, { color: '#1a3a6b', weight: 2, fillOpacity: 0.15 }).addTo(map);
+    marker.bindPopup(`<b>${matches[0].dp}</b><br>${matches[0].sec}<br>${matches[0].dep}`).openPopup();
+  }
+}
+
+// ==================== Buttons ====================
+document.getElementById('cepBtn').addEventListener('click', async () => {
+  const cep = document.getElementById('cepInput').value.trim();
+  if (!cep) return;
+  document.getElementById('resultBox').innerHTML = '<div class="result"><em>Buscando...</em></div>';
+  try {
+    const r = await geocodeCEP(cep);
+    renderResult(r.lat, r.lng, `${r.address}<br><small>${r.display || ''}</small>`);
+  } catch(e) {
+    document.getElementById('resultBox').innerHTML = `<div class="result empty"><h3>Erro</h3><div class="field">${e.message}</div></div>`;
+  }
+});
+
+document.getElementById('addrBtn').addEventListener('click', async () => {
+  const addr = document.getElementById('addrInput').value.trim();
+  if (!addr) return;
+  document.getElementById('resultBox').innerHTML = '<div class="result"><em>Buscando...</em></div>';
+  try {
+    const r = await geocodeAddress(addr);
+    renderResult(r.lat, r.lng, r.display);
+  } catch(e) {
+    document.getElementById('resultBox').innerHTML = `<div class="result empty"><h3>Erro</h3><div class="field">${e.message}</div></div>`;
+  }
+});
+
+document.getElementById('cepInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('cepBtn').click(); });
+document.getElementById('addrInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('addrBtn').click(); });
+
+document.getElementById('clearCacheBtn').addEventListener('click', async () => {
+  if (!confirm('Limpar o cache e baixar os dados de novo?')) return;
+  await cacheClear();
+  location.reload();
+});
+
+document.getElementById('kmlFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  showLoader('Lendo arquivo...', file.name);
+  const text = await file.text();
+  showLoader('Processando polígonos...', '');
+  polygons = parseKML(text);
+  try { await cacheSet(CACHE_KEY, {ts: Date.now(), data: polygons}); } catch(_){}
+  document.getElementById('dataStatus').textContent = `${polygons.length} áreas carregadas`;
+  hideLoader();
+});
+
+// ==================== Init ====================
+(async () => {
+  initMap();
+  const ok = await loadData();
+  if (ok) {
+    document.getElementById('dataStatus').textContent = `${polygons.length} áreas carregadas`;
+    hideLoader();
+  }
+})();
+</script>
+</body>
+</html>
