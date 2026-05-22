@@ -236,28 +236,23 @@
     line-height: 1.5;
   }
   .signature {
-    margin-top: 14px;
-    padding: 10px 14px;
-    background: linear-gradient(135deg, #1a3a6b 0%, #2a5598 100%);
-    color: white;
-    border-radius: 8px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-top: 1px solid #e0e3ea;
+    color: #999;
     text-align: center;
-    font-size: 12px;
-    letter-spacing: 0.4px;
-  }
-  .signature strong {
-    font-size: 14px;
-    letter-spacing: 1px;
-    font-weight: 700;
-    display: block;
-    margin-bottom: 2px;
-  }
-  .signature .sub {
-    opacity: 0.85;
     font-size: 10px;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    z-index: 500;
+    pointer-events: none;
   }
+  body { padding-bottom: 26px; }
 
   /* Desktop: side-by-side when map is open */
   @media (min-width: 900px) {
@@ -265,7 +260,7 @@
     header .status { font-size: 12px; }
     main.map-open {
       flex-direction: row;
-      height: calc(100vh - 56px);
+      height: calc(100vh - 56px - 26px);
     }
     main.map-open .panel {
       width: 420px;
@@ -336,16 +331,14 @@
       <button class="clear-btn" id="clearCacheBtn">Limpar cache e recarregar dados</button>
     </div>
 
-    <div class="signature">
-      <strong>4Dcorra</strong>
-      <span class="sub">Desenvolvido por</span>
-    </div>
   </div>
 
   <div id="mapContainer">
     <div id="map"></div>
   </div>
 </main>
+
+<div class="signature">Desenvolvido por 4Dcorra</div>
 
 <div class="loader" id="loader">
   <div class="spinner"></div>
